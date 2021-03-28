@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <form id="form" name="filters" method="POST" enctype="multipart/form-data">
+        </fieldset>
+        <label for="flip">Filters</label>
+        <fieldset name="filterType">
+            <input type="radio" name="filterType" id="normal" value="normal">
+            <label for="normal">Normal</label>
+            <input type="radio" name="filterType" id="greyscale" value="greyscale">
+            <label for="greyscale">Greyscale</label>
+            <input type="radio" name="filterType" id="invert" value="invert">
+            <label for="invert">Invert</label>
+            <input type="radio" name="filterType" id="sepia" value="sepia">
+            <label for="sepia">Sepia</label>
+        </fieldset>
+        <label for="flip">Flip</label>
+        <fieldset name="flip" id="flip">
+            <input type="radio" name="flip" value="none" id="none">
+            <label for="none">None</label>
+            <input type="radio" name="flip" value="horizontal" id="horizontal">
+            <label for="none">Horizontal</label>
+            <input type="radio" name="flip" value="vertical" id="vertical">
+            <label for="none">Vertical</label>
+        </fieldset>
+        <label for="mirror">Mirror</label>
+        <fieldset name="mirror" id="mirror">
+            <input type="radio" name="mirror" value="none" id="none">
+            <label for="none">None</label>
+            <input type="radio" name="mirror" value="horizontal" id="horizontal">
+            <label for="none">Horizontal</label>
+            <input type="radio" name="mirror" value="vertical" id="vertical">
+            <label for="none">Vertical</label>
+        </fieldset>
+        <input type="range" id="rotate" name="rotate" min="0" max="360">
+        <label for="rotate">Rotate</label>
+        <input type="range" id="blur" name="blur" min="0" max="13">
+        <label for="blur">Blur</label>
+        <input type="range" id="fade" name="fade" min="0" max="13">
+        <label for="fade">Fade</label>
+        <input type="range" id="opacity" name="opacity" min="0" max="100">
+        <label for="opacity">Opacity</label>
+        <input type="range" id="posterize" name="posterize" min="0" max="256">
+        <label for="posterize">Posterize</label>
+        <input type="range" id="brightness" name="brightness" min="0" max="100">
+        <label for="brightness">Brightness</label>
+        <input type="range" id="contrast" name="contrast" min="0" max="100">
+        <label for="contrast">Contrast</label>
+        <input name="file" type="file" id="input-files">
+        <input type="submit">
+    </form>
+    <img src="" alt="" id="image">
+    <script>
+        const input = document.getElementById("input-files");
+        const image = document.getElementById("image");
+        const form = document.getElementById("form");
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault()
+            const formData = new FormData(form);
+            const reader = new FileReader()
+            const resFile = await fetch("http://localhost:3000", {
+                method: "POST",
+                body: formData
+            }).then(res => res.json());
+            const blob = new Blob([new Uint8Array(resFile.buffer.data)], { type: resFile.type });
+            reader.onloadend = () => {
+                image.src = reader.result;
+            }
+            reader.readAsDataURL(blob);
+        })
+    </script>
+</body>
+
+</html>
