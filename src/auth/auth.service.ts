@@ -3,6 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { compare } from 'bcrypt';
 import { User } from 'src/mongoose/schema/user.schema';
 import { UserService } from 'src/users/user.service';
+import { validateEmail } from 'src/validators/validate-email.util';
+import { validatePassword } from 'src/validators/validate-password.util';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +13,7 @@ export class AuthService {
     private userService: UserService,
   ) {}
   async validateUser(email: string, password: string): Promise<User> {
+    validateEmail(email);
     const user: User = await this.userService.getUserByEmail(email);
     if (!user.password)
       throw new UnauthorizedException({
@@ -23,6 +26,7 @@ export class AuthService {
     throw new UnauthorizedException({ email, message: 'Invalid password' });
   }
   async login(email: string, userId: string): Promise<string> {
+    validateEmail(email);
     const access_token: string = await this.jwtService.signAsync({
       email,
       id: userId,
