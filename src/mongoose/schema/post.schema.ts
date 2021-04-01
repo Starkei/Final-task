@@ -23,8 +23,8 @@ export class Post {
   @Prop({ type: SchemaTypes.ObjectId, ref: 'User' })
   author!: User;
 
-  @Prop(raw({ data: { type: Buffer }, contentType: { type: String } }))
-  image!: { data: Buffer; contentType: string };
+  @Prop({ type: String })
+  image!: string;
 
   @Prop({ type: [{ type: SchemaTypes.ObjectId, ref: 'Comment' }] })
   comments!: Comment[];
