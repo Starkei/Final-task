@@ -1,25 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { FilterForCreate } from './filter.type';
 import { Profile } from './profile.types';
 
-export class PostForCreate {
+export class SwaggerPostForCreate extends FilterForCreate {
   @ApiProperty()
   title!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: String,
     isArray: true,
     description: 'string array of user emails or displayNames',
   })
   marks!: string[];
 
-  @ApiProperty({
-    type: String,
-    format: 'url',
-    description: 'Url to image',
-  })
-  image!: string;
-
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: String,
     isArray: true,
   })
@@ -32,8 +26,8 @@ export class PostForCreate {
   urlToPosts?: string;
 
   @ApiProperty({
-    type: 'string',
     format: 'binary',
+    type: 'string',
     description: 'file in format jpeg, jpg, png',
   })
   file: any;
@@ -101,14 +95,7 @@ export class ProfilePost {
   author!: string;
 }
 
-export class PutPost {
-  @ApiPropertyOptional({
-    type: String,
-    format: 'url',
-    description: 'Url to image',
-  })
-  image!: string;
-
+export class SwaggerPutPostDto extends FilterForCreate {
   @ApiPropertyOptional({ type: String, isArray: true })
   tags!: string[];
 

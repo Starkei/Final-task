@@ -1,12 +1,11 @@
-/* eslint-disable prettier/prettier */
-import { Prop, raw, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaTypes } from 'mongoose';
 import { Comment } from 'src/mongoose/schema/comment.schema';
 import { User } from 'src/mongoose/schema/user.schema';
 
 export type PostDocument = Post & Document;
 
-@Schema()
+@Schema({ toJSON: { virtuals: true } })
 export class Post {
   _id?: string;
 
@@ -26,6 +25,8 @@ export class Post {
   @Prop({ type: String })
   image!: string;
 
+  imageUrl?: string;
+
   @Prop({ type: [{ type: SchemaTypes.ObjectId, ref: 'Comment' }] })
   comments!: Comment[];
 
@@ -33,4 +34,9 @@ export class Post {
   tags!: string[];
 }
 
-export const PostSchema = SchemaFactory.createForClass(Post);
+const PostSchema = SchemaFactory.createForClass(Post);
+PostSchema.virtual('imageUrl').get(function (this: PostDocument) {
+  if (this.image) return process.env.HOST_URL + '/' + this.image;
+  return 'EMPTY';
+});
+export { PostSchema };

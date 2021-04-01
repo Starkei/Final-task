@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum FilterTypes {
   NORMAL = 'normal',
@@ -35,7 +35,7 @@ export class FilterForCreate {
   })
   posterize!: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: 'string',
     format: 'binary',
     description: 'file in format jpeg, jpg, png',

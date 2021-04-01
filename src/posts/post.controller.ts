@@ -18,7 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { extractValueFromUser, validateUser } from 'src/auth/request-user.util';
 import { User } from 'src/mongoose/schema/user.schema';
-import { PostDto } from './post.dto';
+import { PostDto, PostForUpdateDto } from './post.dto';
 import { Post as PostEntity } from '../mongoose/schema/post.schema';
 
 import { PostService } from './post.service';
@@ -34,12 +34,11 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { FileUploadDto } from 'src/swagger-types/file-upload-dto.types';
 import {
   CreatedPost,
-  PostForCreate,
   ProfilePost,
-  PutPost,
+  SwaggerPostForCreate,
+  SwaggerPutPostDto,
 } from 'src/swagger-types/post.type';
 import {
   BadRequestError,
@@ -47,7 +46,7 @@ import {
 } from 'src/swagger-types/request-errors.types';
 import { ConvertFormDataToPostDto } from './convert-forms-data-to-array.pipe';
 import { ConvertFormDataToPutPostDto } from './convert-forms-data-to-put-post.pipe';
-import { storeImage } from 'src/store-image.util';
+import { FormDataToNumberPipe } from 'src/filter/filterDto-formatter.pipe';
 
 @ApiTags('Posts')
 @Controller('api/v1/posts')
@@ -58,9 +57,9 @@ export class PostController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'Avatar image, accept types: jpeg, jpg, png',
-    type: FileUploadDto,
+    type: SwaggerPostForCreate,
   })
-  @ApiBody({ type: PostForCreate })
+  @ApiBody({ type: SwaggerPostForCreate })
   @ApiCreatedResponse({ type: CreatedPost })
   @ApiUnauthorizedResponse({ type: UnauthorizedError })
   @ApiBadRequestResponse({ type: BadRequestError })
@@ -71,6 +70,7 @@ export class PostController {
     @Req() req: Request,
     @UploadedFile() image: Express.Multer.File,
     @Body(
+      new FormDataToNumberPipe(),
       new ConvertFormDataToPostDto(),
       new ValidationPipe({ transform: true }),
     )
@@ -81,12 +81,7 @@ export class PostController {
         req.user,
         'email',
       );
-      postDto.image = await storeImage({
-        buffer: image.buffer,
-        mimetype: image.mimetype,
-        originalname: image.originalname,
-      });
-      return this.postService.createPost(email, postDto);
+      return this.postService.createPost(email, image, postDto);
     });
   }
 
@@ -119,14 +114,15 @@ export class PostController {
   }
 
   @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
   @ApiParam({
     name: 'id',
     required: true,
     example: '6065d270bc74253c8caf6e2b',
     description: 'Post id in format objectId',
   })
-  @ApiBody({ type: PutPost })
-  @ApiOkResponse({ description: 'Delete post, and return nothing' })
+  @ApiBody({ type: SwaggerPutPostDto })
+  @ApiOkResponse({ description: 'Update post, and return nothing' })
   @ApiUnauthorizedResponse({
     type: UnauthorizedError,
     description: 'If user is invalid',
@@ -139,21 +135,19 @@ export class PostController {
     @Req() req: Request,
     @Param('id') postId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Body(new ConvertFormDataToPostDto(), new ConvertFormDataToPutPostDto())
-    postDto: Partial<PostDto>,
+    @Body(
+      new FormDataToNumberPipe(),
+      new ConvertFormDataToPutPostDto(),
+      new ValidationPipe({ transform: true }),
+    )
+    postDto: PostForUpdateDto,
   ): Promise<void> {
     return validateUser<Promise<void>>(req.user, async () => {
       const email: string = extractValueFromUser<User, string>(
         req.user,
         'email',
       );
-      if (file)
-        postDto.image = await storeImage({
-          buffer: file.buffer,
-          mimetype: file.mimetype,
-          originalname: file.originalname,
-        });
-      return this.postService.updatePostById(email, postId, postDto);
+      return this.postService.updatePostById(email, postId, file, postDto);
     });
   }
 

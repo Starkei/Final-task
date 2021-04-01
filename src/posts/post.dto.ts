@@ -1,32 +1,23 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty } from 'class-validator';
+import { IsNotEmpty } from 'class-validator';
+import { FilterDto } from 'src/filter/filter.dto';
 
-export class PostDto {
-  @ApiProperty()
+export class PostDto extends FilterDto {
   @IsNotEmpty()
   title!: string;
 
-  @ApiProperty({
-    type: String,
-    isArray: true,
-    description: 'string array of user emails or displayNames',
-  })
-  @IsArray()
-  marks!: string[];
+  marks?: string[];
 
-  @ApiProperty({ type: String, format: 'url', description: 'Url to image' })
-  image!: string;
+  tags?: string[];
 
-  @ApiProperty({
-    type: String,
-    isArray: true,
-  })
-  @IsArray()
-  tags!: string[];
+  urlToPosts?: string;
+}
 
-  @ApiPropertyOptional({
-    description: 'Url to posts storage on frontend, used in email sender',
-    example: 'protocol://domain/{urlToPosts}',
-  })
+export class PostForUpdateDto extends FilterDto {
+  title?: string;
+
+  marks?: string[];
+
+  tags?: string[];
+
   urlToPosts?: string;
 }

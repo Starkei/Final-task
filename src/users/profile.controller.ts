@@ -5,10 +5,10 @@ import {
   Param,
   Put,
   Req,
-  UnauthorizedException,
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ValidationPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -17,19 +17,26 @@ import { ProfileService } from './profile.service';
 import { User } from '../mongoose/schema/user.schema';
 import { extractValueFromUser, validateUser } from 'src/auth/request-user.util';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiOkResponse,
   ApiParam,
-  ApiResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import {
   BadRequestError,
   UnauthorizedError,
 } from 'src/swagger-types/request-errors.types';
-import { FileUploadDto } from 'src/swagger-types/file-upload-dto.types';
-import { Profile } from 'src/swagger-types/profile.types';
+import {
+  Profile,
+  SwaggerProfileForUpdateDto,
+} from 'src/swagger-types/profile.types';
+import { FormDataToNumberPipe } from 'src/filter/filterDto-formatter.pipe';
+import { ConvertFormDataToPostDto } from 'src/posts/convert-forms-data-to-array.pipe';
+import { ProfileForUpdateDto } from './profile-for-update.dto';
 
 @ApiTags('Profile')
 @Controller('api/v1/profile')
@@ -42,14 +49,11 @@ export class ProfileController {
     description: 'should be in format Objectid',
     example: '6063921886018b2190c7b329',
   })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     type: Profile,
     description: 'Return user object with post population',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Return error if profile not found, Invalid id',
+  @ApiBadRequestResponse({
     type: BadRequestError,
   })
   async getProfileById(@Param('userId') userId: string): Promise<User> {
@@ -57,19 +61,14 @@ export class ProfileController {
   }
 
   @ApiBearerAuth()
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     type: Profile,
     description: 'Return user object with post population',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Return error if profile not found, Invalid id',
+  @ApiBadRequestResponse({
     type: BadRequestError,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Return error if unauthorized',
+  @ApiUnauthorizedResponse({
     type: UnauthorizedError,
   })
   @UseGuards(AuthGuard('jwt'))
@@ -82,81 +81,35 @@ export class ProfileController {
   }
 
   @ApiBearerAuth()
-  @ApiParam({
-    name: 'displayName',
-    required: true,
-    description: 'should be unique',
-    type: String,
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Return nothing and update user's display name",
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Return error if profile not found, Invalid id',
-    type: BadRequestError,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Return error if profile with this display name exists',
-    type: BadRequestError,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Return error if unauthorized',
-    type: UnauthorizedError,
-  })
-  @Put('update-display-name')
-  @UseGuards(AuthGuard('jwt'))
-  async changeDisplayName(
-    @Req() req: Request,
-    @Body('displayName') displayName: string,
-  ): Promise<void> {
-    if (req.user) {
-      const email: string = (<User>req.user).email;
-      return this.profileService.updateDisplayName(email, displayName);
-    }
-    throw new UnauthorizedException({
-      user: req.user,
-      message: 'User is not defined',
-    });
-  }
-
-  @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description: 'Avatar image, accept types: jpeg, jpg, png',
-    type: FileUploadDto,
+    type: SwaggerProfileForUpdateDto,
   })
-  @ApiResponse({
-    status: 200,
-    description: "Return nothing and update user's avatar",
+  @ApiOkResponse({
+    description: 'Return nothing and update user',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Return error if profile not found, Invalid id',
+  @ApiBadRequestResponse({
     type: BadRequestError,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Return error if unauthorized',
+  @ApiUnauthorizedResponse({
     type: UnauthorizedError,
   })
-  @Put('update-avatar')
+  @Put()
   @UseGuards(AuthGuard('jwt'))
   @UseInterceptors(FileInterceptor('file'))
   async changeAvatar(
     @Req() req: Request,
     @UploadedFile() file: Express.Multer.File,
+    @Body(
+      new FormDataToNumberPipe(),
+      new ConvertFormDataToPostDto(),
+      new ValidationPipe({ transform: true }),
+    )
+    profileForUpdate: ProfileForUpdateDto,
   ): Promise<void> {
-    if (req.user) {
+    return validateUser(req.user, () => {
       const email: string = (<User>req.user).email;
-      return this.profileService.updateAvatar(email, file);
-    }
-    throw new UnauthorizedException({
-      user: req.user,
-      message: 'User is not defined',
+      return this.profileService.updateProfile(email, file, profileForUpdate);
     });
   }
 }

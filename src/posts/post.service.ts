@@ -3,18 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Query } from 'mongoose';
 import { User } from 'src/mongoose/schema/user.schema';
 import { UserService } from 'src/users/user.service';
-import { PostDto } from './post.dto';
+import { PostDto, PostForUpdateDto } from './post.dto';
 import { Post, PostDocument } from '../mongoose/schema/post.schema';
 import { Comment } from 'src/mongoose/schema/comment.schema';
 import { sendEmail } from './mail-sender';
 import { validateEmail } from 'src/validators/validate-email.util';
 import { validateId } from 'src/validators/validate-id.util';
+import { validateImageContent } from 'src/validators/validate-image-type.util';
+import { FilterService } from 'src/filter/filter.service';
+import { Image, removeImage } from 'src/store-image.util';
+import { FilterDto } from 'src/filter/filter.dto';
+import { BadRequestError } from 'src/swagger-types/request-errors.types';
 
 @Injectable()
 export class PostService {
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<PostDocument>,
     private readonly userService: UserService,
+    private readonly filterService: FilterService,
   ) {}
 
   async getPostsByAuthor(authorEmail: string): Promise<Post[]> {
@@ -88,9 +94,11 @@ export class PostService {
   async updatePostById(
     ownerEmail: string,
     postId: string,
-    postData: Partial<PostDto>,
+    imageForUpdate: Express.Multer.File,
+    postData: PostForUpdateDto,
   ): Promise<void> {
     validateEmail(ownerEmail);
+
     const owner: User = await this.userService.getUserByEmail(ownerEmail);
     const post: PostDocument | null = await this.postModel.findOne({
       _id: postId,
@@ -101,14 +109,42 @@ export class PostService {
         postId,
         message: 'Post with id not found',
       });
+
+    if (imageForUpdate) {
+      if (post.image) await removeImage(post.image);
+      validateImageContent(imageForUpdate.mimetype);
+      const image: string = await this.filterService.applyFilters(
+        { ...imageForUpdate },
+        postData,
+      );
+      post.image = image;
+    }
     if (postData.marks)
-      await post.update({
-        ...postData,
-        marks: await this.userService.pullUsersByDisplayNameOrEmail(
-          postData.marks,
-        ),
-      });
-    else await post.update({ ...(<Omit<Partial<PostDto>, 'marks'>>postData) });
+      post.marks = await this.userService.pullUsersByDisplayNameOrEmail(
+        postData.marks,
+      );
+    if (postData.title) post.title = postData.title;
+    if (postData.tags) post.tags = postData.tags;
+
+    await post.update(post);
+    const updatedPost: PostDocument | null = await this.postModel
+      .findById(post.id)
+      .populate('marks')
+      .exec();
+    if (!updatedPost)
+      throw new BadRequestException({ message: 'Post incorractly updates' });
+    if (updatedPost.marks && updatedPost.marks.length) {
+      const emails: string[] = updatedPost.marks.map(
+        (user: User) => user.email,
+      );
+      await sendEmail(
+        emails,
+        updatedPost.title,
+        updatedPost.tags,
+        updatedPost.author,
+        postData.urlToPosts,
+      );
+    }
   }
 
   async addCommentToPost(postId: string, comment: Comment): Promise<void> {
@@ -122,20 +158,37 @@ export class PostService {
     await post.update({ comments: [...post.comments, comment] });
   }
 
-  async createPost(email: string, postDto: PostDto): Promise<Post> {
+  async createPost(
+    email: string,
+    imageForCreate: Express.Multer.File,
+    postDto: PostDto,
+  ): Promise<Post> {
     validateEmail(email);
+    validateImageContent(imageForCreate.mimetype);
+
     const author: User = await this.userService.getUserByEmail(email);
-    const marks: User[] = await this.userService.pullUsersByDisplayNameOrEmail(
-      postDto.marks,
-    );
+    let marks: User[] = [];
+    let tags: string[] = [];
+    if (postDto.marks)
+      marks = await this.userService.pullUsersByDisplayNameOrEmail(
+        postDto.marks,
+      );
+    if (postDto.tags) tags = postDto.tags;
     const emails: string[] = marks.map((user: User) => user.email);
+    const image: Image = { ...imageForCreate };
+    const imageUrl: string = await this.filterService.applyFilters(
+      image,
+      postDto,
+    );
+
     const createdPost: Post = await this.postModel.create({
       title: postDto.title,
-      image: postDto.image,
+      image: imageUrl,
       tags: postDto.tags,
       marks,
       author,
     });
+    this.userService.addPostToUser(email, createdPost);
     if (!createdPost._id)
       throw new BadRequestException({
         _id: createdPost._id,
@@ -144,9 +197,9 @@ export class PostService {
     let postUrl: string | undefined;
     if (postDto.urlToPosts)
       postUrl = `${postDto.urlToPosts}/${createdPost._id}`;
-    await sendEmail(emails, postDto.title, postDto.tags, author, postUrl);
+    if (emails.length)
+      await sendEmail(emails, postDto.title, tags, author, postUrl);
     const post: Post = await this.getPostById(createdPost._id);
-    this.userService.addPostToUser(email, post);
     return post;
   }
 }

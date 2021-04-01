@@ -1,16 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { storeImage } from 'src/store-image.util';
+import { FilterDto } from 'src/filter/filter.dto';
+import { FilterService } from 'src/filter/filter.service';
+import { getImage, Image, removeImage } from 'src/store-image.util';
 import { validateEmail } from 'src/validators/validate-email.util';
 import { validateId } from 'src/validators/validate-id.util';
 import { validateImageContent } from 'src/validators/validate-image-type.util';
 import { User, UserDocument } from '../mongoose/schema/user.schema';
+import { ProfileForUpdateDto } from './profile-for-update.dto';
 
 @Injectable()
 export class ProfileService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly filterService: FilterService,
   ) {}
 
   async validateIsUserExists(userId: string) {
@@ -21,6 +25,29 @@ export class ProfileService {
         message: 'User with this id not found',
       });
   }
+
+  async validateIsUserWithDisplayNameExists(displayName: string) {
+    const user: UserDocument | null = await this.userModel.findOne({
+      displayName,
+    });
+    if (user)
+      throw new BadRequestException({
+        displayName,
+        message: 'User with this display name is exists',
+      });
+  }
+
+  async validateIsUserWithEmail(email: string) {
+    const user: UserDocument | null = await this.userModel.findOne({
+      email,
+    });
+    if (user)
+      throw new BadRequestException({
+        email,
+        message: 'User with this email is exists',
+      });
+  }
+
   async getUserProfile(userId: string): Promise<User> {
     validateId(userId);
     await this.validateIsUserExists(userId);
@@ -37,37 +64,58 @@ export class ProfileService {
     return profile;
   }
 
-  async updateDisplayName(
-    userEmail: string,
-    newDisplayName: string,
-  ): Promise<void> {
-    validateEmail(userEmail);
-    const user: UserDocument | null = await this.userModel.findOne({
-      email: userEmail,
-    });
-    if (!user)
-      throw new BadRequestException({
-        userEmail: userEmail,
-        message: 'User with this email not found',
-      });
-    await user.update({ displayName: newDisplayName });
+  private async updateOldImageAvatar(
+    oldImageName: string,
+    filters: FilterDto,
+  ): Promise<string> {
+    const image: Image = await getImage(oldImageName);
+    return this.filterService.applyFilters(image, filters);
   }
 
-  async updateAvatar(
+  private async updateNewImageAvatar(
+    newImageName: Express.Multer.File,
+    filters: FilterDto,
+  ): Promise<string> {
+    const image: Image = { ...newImageName };
+    return this.filterService.applyFilters(image, filters);
+  }
+
+  async updateProfile(
     userEmail: string,
     avatar: Express.Multer.File,
+    profileForUpdate: ProfileForUpdateDto,
   ): Promise<void> {
+    //Validate user data
     validateEmail(userEmail);
-    validateImageContent(avatar.mimetype);
+
     const user: UserDocument | null = await this.userModel.findOne({
       email: userEmail,
     });
+
     if (!user)
       throw new BadRequestException({
         userEmail: userEmail,
         message: 'User with this email not found',
       });
-    const url: string = await storeImage({ ...avatar });
-    await user.update({ avatar: url });
+
+    if (profileForUpdate.displayName) {
+      await this.validateIsUserWithDisplayNameExists(
+        profileForUpdate.displayName,
+      );
+      user.displayName = profileForUpdate.displayName;
+    }
+    let oldAvatar: string | undefined;
+    if (user.avatar) oldAvatar = user.avatar;
+    if (!avatar && user.avatar)
+      user.avatar = await this.updateOldImageAvatar(
+        user.avatar,
+        profileForUpdate,
+      );
+    if (avatar) {
+      validateImageContent(avatar.mimetype);
+      user.avatar = await this.updateNewImageAvatar(avatar, profileForUpdate);
+    }
+    if (oldAvatar) await removeImage(oldAvatar);
+    await user.update({ avatar: user.avatar, displayName: user.displayName });
   }
 }

@@ -1,12 +1,12 @@
 /* eslint-disable prettier/prettier */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { validate as isEmail } from 'isemail';
-import { Document, SchemaTypes } from 'mongoose';
+import { Document, SchemaTypes, VirtualType } from 'mongoose';
 import { Comment } from 'src/mongoose/schema/comment.schema';
 import { Post } from 'src/mongoose/schema/post.schema';
 
 export type UserDocument = User & Document;
-@Schema()
+@Schema({ toJSON: { virtuals: true } })
 export class User {
   _id?: string;
 
@@ -32,6 +32,8 @@ export class User {
   })
   avatar?: string;
 
+  avatarUrl?: string;
+
   @Prop({
     required: false,
   })
@@ -46,4 +48,9 @@ export class User {
   coments!: Comment[];
 }
 
-export const UserSchema = SchemaFactory.createForClass(User);
+const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.virtual('avatarUrl').get(function (this: UserDocument) {
+  if (this.avatar) return process.env.HOST_URL + '/' + this.avatar;
+  return 'EMPTY';
+});
+export { UserSchema };
