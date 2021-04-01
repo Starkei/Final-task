@@ -59,7 +59,7 @@ export class AuthController {
     });
   }
 
-  @ApiBody({ type: UserDto })
+  @ApiBody({ type: AuthLoginDto })
   @ApiCreatedResponse({ type: Profile })
   @ApiBadRequestResponse({ type: BadRequestError })
   @ApiUnauthorizedResponse({ type: UnauthorizedError })
