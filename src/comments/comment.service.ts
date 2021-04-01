@@ -6,6 +6,8 @@ import { PostService } from 'src/posts/post.service';
 import { User } from 'src/mongoose/schema/user.schema';
 import { UserService } from 'src/users/user.service';
 import { Comment, CommentDocument } from '../mongoose/schema/comment.schema';
+import { validateEmail } from 'src/validators/validate-email.util';
+import { validateId } from 'src/validators/validate-id.util';
 
 @Injectable()
 export class CommentService {
@@ -21,6 +23,8 @@ export class CommentService {
     postId: string,
     content: string,
   ): Promise<Comment> {
+    validateEmail(email);
+    validateId(postId);
     const author: User = await this.userService.getUserByEmail(email);
     const post: Post = await this.postService.getPostById(postId);
     const comment: Comment = await this.commentModel.create({
