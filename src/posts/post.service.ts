@@ -7,6 +7,8 @@ import { PostDto } from './post.dto';
 import { Post, PostDocument } from '../mongoose/schema/post.schema';
 import { Comment } from 'src/mongoose/schema/comment.schema';
 import { sendEmail } from './mail-sender';
+import { validateEmail } from 'src/validators/validate-email.util';
+import { validateId } from 'src/validators/validate-id.util';
 
 @Injectable()
 export class PostService {
@@ -88,6 +90,7 @@ export class PostService {
     postId: string,
     postData: Partial<PostDto>,
   ): Promise<void> {
+    validateEmail(ownerEmail);
     const owner: User = await this.userService.getUserByEmail(ownerEmail);
     const post: PostDocument | null = await this.postModel.findOne({
       _id: postId,
@@ -109,6 +112,7 @@ export class PostService {
   }
 
   async addCommentToPost(postId: string, comment: Comment): Promise<void> {
+    validateId(postId);
     const post: PostDocument | null = await this.postModel.findById(postId);
     if (!post)
       throw new BadRequestException({
@@ -119,6 +123,7 @@ export class PostService {
   }
 
   async createPost(email: string, postDto: PostDto): Promise<Post> {
+    validateEmail(email);
     const author: User = await this.userService.getUserByEmail(email);
     const marks: User[] = await this.userService.pullUsersByDisplayNameOrEmail(
       postDto.marks,
