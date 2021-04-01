@@ -6,6 +6,8 @@ import { UserDto } from './user.dto';
 import { User, UserDocument } from '../mongoose/schema/user.schema';
 import { Post } from 'src/mongoose/schema/post.schema';
 import { Comment } from 'src/mongoose/schema/comment.schema';
+import { validateEmail } from 'src/validators/validate-email.util';
+import { validatePassword } from 'src/validators/validate-password.util';
 
 type ExistendUser = UserDocument | null;
 
@@ -30,7 +32,11 @@ export class UserService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async reqistrateUser(userDto: UserDto): Promise<User> {
-    if (userDto.password) userDto.password = await hash(userDto.password, 10);
+    validateEmail(userDto.email);
+    if (userDto.password) {
+      validatePassword(userDto.password);
+      userDto.password = await hash(userDto.password, 10);
+    }
     await this.validateIsUserExists(userDto);
     return this.userModel.create(userDto);
   }
@@ -56,6 +62,7 @@ export class UserService {
   }
 
   async addPostToUser(email: string, post: Post): Promise<void> {
+    validateEmail(email);
     const userDoc: UserDocument | null = await this.userModel.findOne({
       email,
     });
@@ -68,6 +75,7 @@ export class UserService {
   }
 
   async addCommentToUser(email: string, comment: Comment): Promise<void> {
+    validateEmail(email);
     const userDoc: UserDocument | null = await this.userModel.findOne({
       email,
     });

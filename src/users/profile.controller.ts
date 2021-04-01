@@ -13,7 +13,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
-import { Avatar, ProfileService } from './profile.service';
+import { ProfileService } from './profile.service';
 import { User } from '../mongoose/schema/user.schema';
 import { extractValueFromUser, validateUser } from 'src/auth/request-user.util';
 import {
@@ -21,36 +21,17 @@ import {
   ApiBody,
   ApiConsumes,
   ApiParam,
-  ApiProperty,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import {
+  BadRequestError,
+  UnauthorizedError,
+} from 'src/swagger-types/request-errors.types';
+import { FileUploadDto } from 'src/swagger-types/file-upload-dto.types';
+import { Profile } from 'src/swagger-types/profile.types';
 
-class BadRequestError {
-  @ApiProperty({ default: 400 })
-  status!: 400;
-
-  @ApiProperty({ description: 'Error message' })
-  message!: string;
-}
-class UnauthorizedError {
-  @ApiProperty({ default: 401 })
-  status!: 401;
-
-  @ApiProperty({ description: 'Error message' })
-  message!: string;
-}
-
-class FileUploadDto {
-  @ApiProperty({
-    type: 'string',
-    format: 'binary',
-    description: 'file in format jpeg, jpg, png',
-  })
-  file: any;
-}
-
-ApiTags('Profile');
+@ApiTags('Profile')
 @Controller('api/v1/profile')
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
@@ -63,7 +44,7 @@ export class ProfileController {
   })
   @ApiResponse({
     status: 200,
-    type: User,
+    type: Profile,
     description: 'Return user object with post population',
   })
   @ApiResponse({
@@ -78,7 +59,7 @@ export class ProfileController {
   @ApiBearerAuth()
   @ApiResponse({
     status: 200,
-    type: User,
+    type: Profile,
     description: 'Return user object with post population',
   })
   @ApiResponse({
@@ -145,7 +126,7 @@ export class ProfileController {
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description: 'List of cats',
+    description: 'Avatar image, accept types: jpeg, jpg, png',
     type: FileUploadDto,
   })
   @ApiResponse({
@@ -171,8 +152,7 @@ export class ProfileController {
   ): Promise<void> {
     if (req.user) {
       const email: string = (<User>req.user).email;
-      const avatar: Avatar = { data: file.buffer, contentType: file.mimetype };
-      return this.profileService.updateAvatar(email, avatar);
+      return this.profileService.updateAvatar(email, file);
     }
     throw new UnauthorizedException({
       user: req.user,
