@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import * as Jimp from 'jimp';
-import { Image, storeImage } from '../store-image.util';
+import { FileService, Image } from 'src/files/file.service';
 import { Direction, FilterDto, FilterTypes } from './filter.dto';
 
 @Injectable()
 export class FilterService {
+  constructor(private readonly imageService: FileService) {}
+
   async applyFilters(file: Image, filter: FilterDto): Promise<string> {
     let image = await Jimp.read(file.buffer);
     if (filter.filterType !== FilterTypes.NORMAL) {
@@ -32,7 +34,7 @@ export class FilterService {
       image = image.posterize(3);
     }
     const buffer = await image.getBufferAsync(file.mimetype);
-    return await storeImage({
+    return await this.imageService.storeImage({
       buffer,
       mimetype: file.mimetype,
       originalname: file.originalname,

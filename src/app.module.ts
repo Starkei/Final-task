@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { FilterModule } from './filter/filter.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { FileModule } from './files/file.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     UserModule,
     PostModule,
     FilterModule,
+    FileModule,
   ],
   providers: [ConfigService],
 })

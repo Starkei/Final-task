@@ -11,9 +11,7 @@ import { validateEmail } from 'src/validators/validate-email.util';
 import { validateId } from 'src/validators/validate-id.util';
 import { validateImageContent } from 'src/validators/validate-image-type.util';
 import { FilterService } from 'src/filter/filter.service';
-import { Image, removeImage } from 'src/store-image.util';
-import { FilterDto } from 'src/filter/filter.dto';
-import { BadRequestError } from 'src/swagger-types/request-errors.types';
+import { FileService, Image } from 'src/files/file.service';
 
 @Injectable()
 export class PostService {
@@ -21,6 +19,7 @@ export class PostService {
     @InjectModel(Post.name) private readonly postModel: Model<PostDocument>,
     private readonly userService: UserService,
     private readonly filterService: FilterService,
+    private readonly imageService: FileService,
   ) {}
 
   async getPostsByAuthor(authorEmail: string): Promise<Post[]> {
@@ -111,7 +110,7 @@ export class PostService {
       });
 
     if (imageForUpdate) {
-      if (post.image) await removeImage(post.image);
+      if (post.image) await this.imageService.removeImage(post.image);
       validateImageContent(imageForUpdate.mimetype);
       const image: string = await this.filterService.applyFilters(
         { ...imageForUpdate },

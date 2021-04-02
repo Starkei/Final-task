@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { FileService, Image } from 'src/files/file.service';
 import { FilterDto } from 'src/filter/filter.dto';
 import { FilterService } from 'src/filter/filter.service';
-import { getImage, Image, removeImage } from 'src/store-image.util';
 import { validateEmail } from 'src/validators/validate-email.util';
 import { validateId } from 'src/validators/validate-id.util';
 import { validateImageContent } from 'src/validators/validate-image-type.util';
@@ -14,6 +14,7 @@ import { ProfileForUpdateDto } from './profile-for-update.dto';
 export class ProfileService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly imageService: FileService,
     private readonly filterService: FilterService,
   ) {}
 
@@ -68,7 +69,7 @@ export class ProfileService {
     oldImageName: string,
     filters: FilterDto,
   ): Promise<string> {
-    const image: Image = await getImage(oldImageName);
+    const image: Image = await this.imageService.getImage(oldImageName);
     return this.filterService.applyFilters(image, filters);
   }
 
@@ -115,7 +116,7 @@ export class ProfileService {
       validateImageContent(avatar.mimetype);
       user.avatar = await this.updateNewImageAvatar(avatar, profileForUpdate);
     }
-    if (oldAvatar) await removeImage(oldAvatar);
+    if (oldAvatar) await this.imageService.removeImage(oldAvatar);
     await user.update({ avatar: user.avatar, displayName: user.displayName });
   }
 }
